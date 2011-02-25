@@ -57,3 +57,19 @@ class SmartSlugField(SlugField):
 
         setattr(instance, self.attname, potential_slug)
         return potential_slug
+
+try:
+    from south.modelsinspector import add_introspection_rules
+except ImportError:
+    pass
+else:
+    add_introspection_rules([
+        ([SmartSlugField], [],
+            {
+                "source_field": ["source_field", {"default": None}],
+                "date_field": ["date_field", {"default": None}],
+                "split_on_words": ["split_on_words", {"default": False}],
+                "underscores": ["underscores", {"default": True}],
+            },
+        ),
+    ], ["^smart_slug\.fields\.SmartSlugField"])
