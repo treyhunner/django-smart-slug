@@ -57,3 +57,10 @@ class SmartSlugField(SlugField):
 
         setattr(instance, self.attname, potential_slug)
         return potential_slug
+
+    def south_field_triple(self):
+        "Returns a suitable description of this field for South."
+        from south.modelsinspector import introspector
+        field_class = "django.db.models.fields.SlugField"
+        args, kwargs = introspector(self)
+        return (field_class, args, kwargs)
