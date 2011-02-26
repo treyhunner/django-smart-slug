@@ -11,7 +11,8 @@ class SmartSlugField(SlugField):
         self.date_field = kwargs.pop('date_field', None)
         self.split_on_words = kwargs.pop('split_on_words', False)
         self.underscores = kwargs.pop('underscores', True)
-        kwargs['unique'] = self.date_field is None
+        self.allow_duplicates = kwargs.pop('allow_duplicates', False)
+        kwargs['unique'] = self.date_field is None and not self.allow_duplicates
         kwargs['editable'] = self.source_field is None
         super(SmartSlugField, self).__init__(*args, **kwargs)
 
@@ -30,12 +31,6 @@ class SmartSlugField(SlugField):
         
         model = instance.__class__
 
-        if self.date_field:
-            query = self._generate_date_query(getattr(instance, self.date_field))
-        else:
-            query = {}
-        base_qs = model._default_manager.filter(**query)
-
         if self.split_on_words and len(potential_slug) > self.max_length:
             pos = potential_slug[:self.max_length + 1].rfind('-')
             if pos > 0:
@@ -43,17 +38,24 @@ class SmartSlugField(SlugField):
 
         potential_slug = slug = potential_slug[:self.max_length]
                 
-        if instance.pk is not None:
-            base_qs = base_qs.exclude(pk=instance.pk)
-
-        i = 0
-        while base_qs.filter(**{self.attname: potential_slug}).count() > 0:
-            i += 1
-            if self.underscores:
-                suffix = '_' * i
+        if not self.allow_duplicates:
+            if self.date_field:
+                query = self._generate_date_query(getattr(instance, self.date_field))
             else:
-                suffix = '-%s' % i
-            potential_slug = '%s%s' % (slug[:self.max_length - len(suffix)], suffix)
+                query = {}
+            base_qs = model._default_manager.filter(**query)
+
+            if instance.pk is not None:
+                base_qs = base_qs.exclude(pk=instance.pk)
+
+            i = 0
+            while base_qs.filter(**{self.attname: potential_slug}).count() > 0:
+                i += 1
+                if self.underscores:
+                    suffix = '_' * i
+                else:
+                    suffix = '-%s' % i
+                potential_slug = '%s%s' % (slug[:self.max_length - len(suffix)], suffix)
 
         setattr(instance, self.attname, potential_slug)
         return potential_slug
