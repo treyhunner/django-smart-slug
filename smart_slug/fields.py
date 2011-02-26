@@ -23,11 +23,14 @@ class SmartSlugField(SlugField):
             '%s__day' % self.date_field: dt.day
         }
 
+    def slugify(self, content):
+        return slugify(content)
+
     def pre_save(self, instance, add):
         potential_slug = getattr(instance, self.attname)
 
         if self.source_field:
-            potential_slug = slugify(getattr(instance, self.source_field))
+            potential_slug = self.slugify(getattr(instance, self.source_field))
         
         model = instance.__class__
 
