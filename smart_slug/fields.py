@@ -12,6 +12,7 @@ class SmartSlugField(SlugField):
         self.split_on_words = kwargs.pop('split_on_words', False)
         self.underscores = kwargs.pop('underscores', True)
         self.allow_duplicates = kwargs.pop('allow_duplicates', False)
+        self.reserved_slugs = kwargs.pop('reserved_slugs', [])
         kwargs['unique'] = self.date_field is None and not self.allow_duplicates
         kwargs['editable'] = self.source_field is None
         super(SmartSlugField, self).__init__(*args, **kwargs)
@@ -25,6 +26,14 @@ class SmartSlugField(SlugField):
 
     def slugify(self, content):
         return slugify(content)
+
+    def _get_slug_suffix(self, slug, i):
+        if self.underscores:
+            suffix = '_' * i
+        else:
+            suffix = '-%s' % i
+        return '%s%s' % (slug[:self.max_length - len(suffix)], suffix)
+
 
     def pre_save(self, instance, add):
         potential_slug = getattr(instance, self.attname)
@@ -52,13 +61,14 @@ class SmartSlugField(SlugField):
                 base_qs = base_qs.exclude(pk=instance.pk)
 
             i = 0
-            while base_qs.filter(**{self.attname: potential_slug}).count() > 0:
+            while base_qs.filter(**{self.attname: potential_slug}).count() > 0 or potential_slug in self.reserved_slugs:
                 i += 1
-                if self.underscores:
-                    suffix = '_' * i
-                else:
-                    suffix = '-%s' % i
-                potential_slug = '%s%s' % (slug[:self.max_length - len(suffix)], suffix)
+                potential_slug = self._get_slug_suffix(slug, i)
+        else:
+            i = 0
+            while potential_slug in self.reserved_slugs:
+                i += 1
+                potential_slug = self._get_slug_suffix(slug, i)
 
         setattr(instance, self.attname, potential_slug)
         return potential_slug
